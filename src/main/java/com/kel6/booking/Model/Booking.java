@@ -46,8 +46,8 @@ public class Booking {
     @Column(name = "total_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalPrice;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Convert(converter = BookingStatusConverter.class)
     private BookingStatus status = BookingStatus.PENDING;
 
     @Column(columnDefinition = "TEXT")
@@ -86,5 +86,21 @@ public class Booking {
         REJECTED,           // admin tolak
         CANCELLED,          // user cancel
         DONE                // sesi selesai
+    }
+
+    @jakarta.persistence.Converter
+    public static class BookingStatusConverter
+            implements jakarta.persistence.AttributeConverter<BookingStatus, String> {
+
+        @Override
+        public String convertToDatabaseColumn(BookingStatus status) {
+            return status == null ? null : status.name();
+        }
+
+        @Override
+        public BookingStatus convertToEntityAttribute(String value) {
+            if (value == null) return null;
+            return BookingStatus.valueOf(value.toUpperCase());
+        }
     }
 }
