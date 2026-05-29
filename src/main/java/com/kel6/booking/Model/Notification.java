@@ -30,8 +30,8 @@ public class Notification {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String message;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Convert(converter = NotificationTypeConverter.class)
     private NotificationType type;
 
     @Column(name = "is_read", nullable = false)
@@ -52,5 +52,21 @@ public class Notification {
         BOOKING_CANCELLED,
         PAYMENT_VERIFIED,
         REMINDER
+    }
+
+    @jakarta.persistence.Converter
+    public static class NotificationTypeConverter
+            implements jakarta.persistence.AttributeConverter<NotificationType, String> {
+
+        @Override
+        public String convertToDatabaseColumn(NotificationType notificationType) {
+            return notificationType == null ? null : notificationType.name(); // simpan sebagai "USER" / "ADMIN"
+        }
+
+        @Override
+        public NotificationType convertToEntityAttribute(String value) {
+            if (value == null) return null;
+            return NotificationType.valueOf(value.toUpperCase()); // baca "user" → USER
+        }
     }
 }

@@ -41,6 +41,7 @@ public class SecurityConfig {
             "/api/auth/login",
             "/api/courts",              // daftar lapangan boleh dilihat siapa saja
             "/api/courts/**",           // detail lapangan juga publik
+            "/api/files/**",
     };
 
     // ─── Security filter chain utama ─────────────────────────────────

@@ -26,8 +26,8 @@ public class Payment {
     @JoinColumn(name = "booking_id", nullable = false, unique = true)
     private Booking booking;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Convert(converter = PaymentMethodConverter.class)
     private PaymentMethod method;
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -37,8 +37,8 @@ public class Payment {
     @Column(name = "proof_image_url", length = 500)
     private String proofImageUrl;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Convert(converter = PaymentStatusConverter.class)
     private PaymentStatus status = PaymentStatus.UNPAID;
 
     // Admin yang memverifikasi
@@ -76,5 +76,37 @@ public class Payment {
         UPLOADED,   // user sudah upload bukti, menunggu admin
         VERIFIED,   // admin sudah verifikasi
         FAILED      // verifikasi gagal / ditolak admin
+    }
+
+    @jakarta.persistence.Converter
+    public static class PaymentStatusConverter
+            implements jakarta.persistence.AttributeConverter<PaymentStatus, String> {
+
+        @Override
+        public String convertToDatabaseColumn(PaymentStatus paymentStatus) {
+            return paymentStatus == null ? null : paymentStatus.name();
+        }
+
+        @Override
+        public PaymentStatus convertToEntityAttribute(String value) {
+            if (value == null) return null;
+            return PaymentStatus.valueOf(value.toUpperCase());
+        }
+    }
+
+    @jakarta.persistence.Converter
+    public static class PaymentMethodConverter
+            implements jakarta.persistence.AttributeConverter<PaymentMethod, String> {
+
+        @Override
+        public String convertToDatabaseColumn(PaymentMethod paymentMethod) {
+            return paymentMethod == null ? null : paymentMethod.name();
+        }
+
+        @Override
+        public PaymentMethod convertToEntityAttribute(String value) {
+            if (value == null) return null;
+            return PaymentMethod.valueOf(value.toUpperCase());
+        }
     }
 }
