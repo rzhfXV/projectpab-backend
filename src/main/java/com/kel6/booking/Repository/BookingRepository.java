@@ -20,14 +20,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     // ── Cek konflik jadwal sebelum booking dibuat ────────────────────
     // Logika: ada booking aktif di court + tanggal yang sama,
     // dan waktunya overlap dengan slot yang diminta
-    @Query("""
-        SELECT COUNT(b) FROM Booking b
-        WHERE b.court.id   = :courtId
-          AND b.bookingDate = :bookingDate
-          AND b.status NOT IN ('CANCELLED', 'REJECTED')
-          AND b.startTime  < :endTime
-          AND b.endTime    > :startTime
-    """)
+    @Query("SELECT COUNT(b) FROM Booking b " +
+           "WHERE b.court.id   = :courtId " +
+           "  AND b.bookingDate = :bookingDate " +
+           "  AND b.status NOT IN ('CANCELLED', 'REJECTED') " +
+           "  AND b.startTime  < :endTime " +
+           "  AND b.endTime    > :startTime")
     long countConflictingBookings(
             @Param("courtId")     Long courtId,
             @Param("bookingDate") LocalDate bookingDate,
@@ -37,13 +35,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     // ── Ambil semua booking aktif di lapangan pada tanggal tertentu ──
     // Dipakai untuk menampilkan slot mana saja yang sudah terisi
-    @Query("""
-        SELECT b FROM Booking b
-        WHERE b.court.id   = :courtId
-          AND b.bookingDate = :bookingDate
-          AND b.status NOT IN ('CANCELLED', 'REJECTED')
-        ORDER BY b.startTime
-    """)
+    @Query("SELECT b FROM Booking b " +
+           "WHERE b.court.id   = :courtId " +
+           "  AND b.bookingDate = :bookingDate " +
+           "  AND b.status NOT IN ('CANCELLED', 'REJECTED') " +
+           "ORDER BY b.startTime")
     List<Booking> findActiveBookingsByCourtAndDate(
             @Param("courtId")     Long courtId,
             @Param("bookingDate") LocalDate bookingDate

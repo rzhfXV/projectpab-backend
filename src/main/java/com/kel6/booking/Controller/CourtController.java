@@ -19,36 +19,31 @@ public class CourtController {
 
     private final CourtService courtService;
 
-    /**
-     * GET /api/courts
-     * Publik — tidak butuh token
-     * Kembalikan semua lapangan aktif
-     */
     @GetMapping
     public ResponseEntity<ApiResponse<List<CourtResponse>>> getAllCourts() {
         return ResponseEntity.ok(ApiResponse.success(courtService.getAllActiveCourts()));
     }
 
-    /**
-     * GET /api/courts/{id}
-     * Publik — detail satu lapangan beserta jadwal operasional
-     */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<CourtResponse>> getCourtById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(courtService.getCourtById(id)));
     }
 
-    /**
-     * GET /api/courts/{id}/slots?date=2025-07-01
-     * Publik — daftar slot 1 jam + status available/taken
-     * Android pakai ini untuk tampilkan kalender booking
-     */
     @GetMapping("/{id}/slots")
     public ResponseEntity<ApiResponse<List<SlotResponse>>> getAvailableSlots(
             @PathVariable Long id,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(ApiResponse.success(courtService.getAvailableSlots(id, date)));
+    }
 
-        return ResponseEntity.ok(ApiResponse.success(
-                courtService.getAvailableSlots(id, date)));
+    @GetMapping("/near-me")
+    public ResponseEntity<ApiResponse<List<CourtResponse>>> getNearMeCourts(
+            @RequestParam("lat") Double latitude,
+            @RequestParam("lng") Double longitude) {
+
+        List<CourtResponse> allCourts = courtService.getAllActiveCourts();
+
+
+        return ResponseEntity.ok(ApiResponse.success(allCourts));
     }
 }

@@ -37,13 +37,29 @@ public class Court {
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
 
+    @Transient
+    private Double rate;
+
+    @Transient
+    private Double latitude;
+
+    @Transient
+    private Double longitude;
+
+
+    @Transient
+    private List<Object> coaches; // Menggunakan pendukung objek dinamis 
+
+    @Transient
+    private List<Object> events;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // Relasi ke jadwal operasional lapangan
+    // Relasi asli ke jadwal operasional lapangan dari database
     @OneToMany(mappedBy = "court", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<CourtSchedule> schedules;
 
