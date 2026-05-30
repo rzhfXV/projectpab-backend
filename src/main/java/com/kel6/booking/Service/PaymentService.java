@@ -20,7 +20,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,25 +35,17 @@ public class PaymentService {
     @Value("${app.upload.dir}")
     private String uploadDir;
 
-    // ─── Step 1: User pilih metode pembayaran ─────────────────────────
-    // Dipanggil setelah booking dibuat (status PENDING)
     @Transactional
-    public PaymentResponse selectPaymentMethod(Long bookingId,
-                                               PaymentRequest request,
-                                               User user) {
+    public PaymentResponse selectPaymentMethod(Long bookingId, PaymentRequest request, User user) {
         Booking booking = getBookingAndValidateOwner(bookingId, user);
 
         if (booking.getStatus() != Booking.BookingStatus.PENDING) {
-            throw new BusinessException(
-                    "Pembayaran hanya bisa dilakukan untuk booking berstatus PENDING");
+            throw new BusinessException("Pembayaran hanya bisa dilakukan untuk booking berstatus PENDING");
         }
 
-        // Cek kalau sudah ada payment record sebelumnya
-        Payment payment = paymentRepository.findByBookingId(bookingId)
-                .orElse(null);
+        Payment payment = paymentRepository.findByBookingId(bookingId).orElse(null);
 
         if (payment == null) {
-            // Buat payment record baru
             Payment.PaymentMethod method;
             try {
                 method = Payment.PaymentMethod.valueOf(request.getMethod().toUpperCase());
@@ -65,56 +59,51 @@ public class PaymentService {
                     .method(method)
                     .amount(booking.getTotalPrice())
                     .status(Payment.PaymentStatus.UNPAID)
+                    .createdAt(LocalDateTime.now())
                     .build();
 
             paymentRepository.save(payment);
         }
 
-        // Update status booking jadi WAITING_PAYMENT
         booking.setStatus(Booking.BookingStatus.WAITING_PAYMENT);
         bookingRepository.save(booking);
 
         return PaymentResponse.from(payment);
     }
 
-    // ─── Step 2: User upload bukti pembayaran ─────────────────────────
     @Transactional
-    public PaymentResponse uploadProof(Long bookingId,
-                                       MultipartFile file,
-                                       User user) throws IOException {
+    public PaymentResponse uploadProof(Long bookingId, MultipartFile file, User user) throws IOException {
         Booking booking = getBookingAndValidateOwner(bookingId, user);
 
         if (booking.getStatus() != Booking.BookingStatus.WAITING_PAYMENT) {
-            throw new BusinessException(
-                    "Upload bukti hanya bisa untuk booking berstatus WAITING_PAYMENT");
+            throw new BusinessException("Upload bukti hanya bisa untuk booking berstatus WAITING_PAYMENT");
         }
 
         Payment payment = paymentRepository.findByBookingId(bookingId)
-                .orElseThrow(() -> new BusinessException(
-                        "Pilih metode pembayaran terlebih dahulu"));
+                .orElseThrow(() -> new BusinessException("Pilih metode pembayaran terlebih dahulu"));
 
-        // Validasi file
         validateImageFile(file);
-
-        // Simpan file ke disk
         String filename = saveFile(file, bookingId);
 
-        // Update payment record
         payment.setProofImageUrl(filename);
-        payment.setStatus(Payment.PaymentStatus.UPLOADED);
+        payment.setStatus(Payment.PaymentStatus.UPLOADED); 
+        payment.setUpdatedAt(LocalDateTime.now()); 
+        
+        payment.setVerifiedAt(null);
+        payment.setVerifiedBy(null);
         paymentRepository.save(payment);
 
-        // Notifikasi user
+        booking.setStatus(Booking.BookingStatus.WAITING_PAYMENT); 
+        bookingRepository.save(booking);
+
         sendNotification(user,
                 "Bukti Bayar Diterima",
-                "Bukti pembayaran booking #" + bookingId +
-                        " sudah kami terima. Menunggu verifikasi admin.",
+                "Bukti pembayaran booking #" + bookingId + " sudah kami terima. Menunggu verifikasi admin.",
                 Notification.NotificationType.PAYMENT_VERIFIED);
 
         return PaymentResponse.from(payment);
     }
 
-    // ─── Step 3 (Admin): Verifikasi bukti pembayaran ──────────────────
     @Transactional
     public PaymentResponse verifyPayment(Long bookingId, boolean approved, User admin) {
         Booking booking = bookingRepository.findById(bookingId)
@@ -131,22 +120,24 @@ public class PaymentService {
             payment.setStatus(Payment.PaymentStatus.VERIFIED);
             payment.setVerifiedBy(admin);
             payment.setVerifiedAt(LocalDateTime.now());
+            payment.setUpdatedAt(LocalDateTime.now());
             booking.setStatus(Booking.BookingStatus.CONFIRMED);
 
             sendNotification(booking.getUser(),
                     "Pembayaran Terverifikasi!",
                     "Pembayaran booking lapangan " + booking.getCourt().getName() +
-                            " tanggal " + booking.getBookingDate() + " telah diverifikasi. " +
-                            "Sampai jumpa di lapangan!",
+                            " tanggal " + booking.getBookingDate() + " telah diverifikasi.",
                     Notification.NotificationType.PAYMENT_VERIFIED);
         } else {
             payment.setStatus(Payment.PaymentStatus.FAILED);
+            payment.setVerifiedBy(admin); 
+            payment.setVerifiedAt(LocalDateTime.now());
+            payment.setUpdatedAt(LocalDateTime.now());
             booking.setStatus(Booking.BookingStatus.REJECTED);
 
             sendNotification(booking.getUser(),
                     "Pembayaran Ditolak",
-                    "Bukti pembayaran booking #" + bookingId +
-                            " ditolak. Silakan hubungi admin.",
+                    "Bukti pembayaran booking #" + bookingId + " ditolak. Silakan hubungi admin.",
                     Notification.NotificationType.BOOKING_REJECTED);
         }
 
@@ -156,18 +147,28 @@ public class PaymentService {
         return PaymentResponse.from(payment);
     }
 
-    // ─── Get payment by booking id ────────────────────────────────────
     public PaymentResponse getPaymentByBookingId(Long bookingId, User user) {
         getBookingAndValidateOwner(bookingId, user);
 
         Payment payment = paymentRepository.findByBookingId(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Data payment untuk booking #" + bookingId + " belum ada"));
+                .orElseThrow(() -> new ResourceNotFoundException("Data payment untuk booking #" + bookingId + " belum ada"));
 
         return PaymentResponse.from(payment);
     }
 
-    // ─── Helper: validasi file gambar ─────────────────────────────────
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getAllUserPayments(User user) {
+        List<Payment> payments;
+        if (user.getRole() == User.Role.ADMIN) {
+            payments = paymentRepository.findAll();
+        } else {
+            payments = paymentRepository.findAllByBookingUserIdOrderByCreatedAtDesc(user.getId());
+        }
+        return payments.stream()
+                .map(PaymentResponse::from)
+                .collect(Collectors.toList());
+    }
+
     private void validateImageFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException("File tidak boleh kosong");
@@ -181,21 +182,17 @@ public class PaymentService {
             throw new BusinessException("Format file harus JPG atau PNG");
         }
 
-        // Maksimal 5MB
         if (file.getSize() > 5 * 1024 * 1024) {
             throw new BusinessException("Ukuran file maksimal 5MB");
         }
     }
 
-    // ─── Helper: simpan file ke disk ──────────────────────────────────
     private String saveFile(MultipartFile file, Long bookingId) throws IOException {
-        // Buat folder kalau belum ada
         Path uploadPath = Paths.get(uploadDir);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
 
-        // Generate nama file unik: booking_{id}_{uuid}.jpg
         String originalFilename = file.getOriginalFilename();
         String extension = "";
         if (originalFilename != null && originalFilename.contains(".")) {
@@ -206,25 +203,20 @@ public class PaymentService {
         Path filePath = uploadPath.resolve(filename);
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-        return filename; // simpan nama file saja, bukan full path
+        return filename;
     }
 
-    // ─── Helper: validasi owner ───────────────────────────────────────
     private Booking getBookingAndValidateOwner(Long bookingId, User user) {
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Booking #" + bookingId + " tidak ditemukan"));
+                .orElseThrow(() -> new ResourceNotFoundException("Booking #" + bookingId + " tidak ditemukan"));
 
-        if (user.getRole() != User.Role.ADMIN &&
-                !booking.getUser().getId().equals(user.getId())) {
+        if (user.getRole() != User.Role.ADMIN && !booking.getUser().getId().equals(user.getId())) {
             throw new BusinessException("Anda tidak punya akses ke booking ini");
         }
         return booking;
     }
 
-    // ─── Helper: kirim notifikasi ─────────────────────────────────────
-    private void sendNotification(User user, String title, String message,
-                                  Notification.NotificationType type) {
+    private void sendNotification(User user, String title, String message, Notification.NotificationType type) {
         notificationRepository.save(Notification.builder()
                 .user(user)
                 .title(title)

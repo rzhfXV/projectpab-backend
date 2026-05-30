@@ -37,6 +37,9 @@ public class User implements UserDetails {
     @Column(length = 20)
     private String phone;
 
+    @Column(name = "profile_picture", length = 255)
+    private String profilePicture;
+
     @Column(nullable = false)
     @Convert(converter = User.RoleConverter.class)
     private Role role;
@@ -61,12 +64,10 @@ public class User implements UserDetails {
         updatedAt = LocalDateTime.now();
     }
 
-    // ─── Enum Role ───────────────────────────────────────────────────
     public enum Role {
         USER, ADMIN
     }
 
-    // ─── Implementasi UserDetails (untuk Spring Security) ────────────
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
@@ -74,7 +75,6 @@ public class User implements UserDetails {
 
     @Override
     public String getUsername() {
-        // Spring Security pakai email sebagai username
         return email;
     }
 
@@ -104,13 +104,13 @@ public class User implements UserDetails {
 
         @Override
         public String convertToDatabaseColumn(Role role) {
-            return role == null ? null : role.name(); // simpan sebagai "USER" / "ADMIN"
+            return role == null ? null : role.name();
         }
 
         @Override
         public Role convertToEntityAttribute(String value) {
             if (value == null) return null;
-            return Role.valueOf(value.toUpperCase()); // baca "user" → USER
+            return Role.valueOf(value.toUpperCase());
         }
     }
 }

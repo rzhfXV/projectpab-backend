@@ -39,6 +39,7 @@ public class Payment {
 
     @Column(nullable = false)
     @Convert(converter = PaymentStatusConverter.class)
+    @Builder.Default
     private PaymentStatus status = PaymentStatus.UNPAID;
 
     // Admin yang memverifikasi

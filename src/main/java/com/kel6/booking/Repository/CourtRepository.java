@@ -9,6 +9,5 @@ import java.util.List;
 @Repository
 public interface CourtRepository extends JpaRepository<Court, Long> {
 
-    // Ambil semua lapangan yang aktif (untuk ditampilkan ke user)
     List<Court> findByIsActiveTrue();
 }

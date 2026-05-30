@@ -9,8 +9,6 @@ import java.util.Optional;
 @Repository
 public interface CourtScheduleRepository extends JpaRepository<CourtSchedule, Long> {
 
-    // Ambil jadwal lapangan untuk hari tertentu
-    // dayOfWeek: 0=Minggu, 1=Senin, ..., 6=Sabtu
     Optional<CourtSchedule> findByCourtIdAndDayOfWeekAndIsActiveTrue(
             Long courtId, Integer dayOfWeek);
 }

@@ -79,7 +79,6 @@ public class CourtResponse {
             }
         }
 
-        // Jika data jadwal kosong di database, gunakan fallback slot standar agar FE tidak blank putih
         if (slots.isEmpty()) {
             slots = List.of("06:00", "07:30", "09:00", "10:30", "12:00", "13:30", "15:00", "16:30", "18:00", "19:30", "21:00");
         }
@@ -92,7 +91,6 @@ public class CourtResponse {
         List<CoachInfo> coachList = new ArrayList<>();
         List<EventInfo> eventList = new ArrayList<>();
 
-        // VARIASI DATA TAMBAHAN UNTUK SETIAP COURT (Menyesuaikan ID Database kelompok)
         if (court.getId() != null) {
             int id = court.getId().intValue();
             switch (id) {
@@ -135,13 +133,11 @@ public class CourtResponse {
                 .build();
     }
 
-    // MEMPERBAIKI INDEKS HARI: SQL (1 = Minggu, 2 = Senin, dst)
     private static String getDayName(int day) {
         String[] names = {"", "Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"};
         return (day >= 1 && day <= 7) ? names[day] : "Unknown";
     }
 
-    // LOGIKA MATEMATIKA BE: Memecah jam buka s.d tutup menjadi potongan tombol per 1.5 jam secara dinamis!
     private static List<String> generateDynamicSlots(LocalTime openTime, LocalTime closeTime) {
         List<String> generatedSlots = new ArrayList<>();
         if (openTime == null || closeTime == null) return generatedSlots;
@@ -152,7 +148,7 @@ public class CourtResponse {
         // Batasi perulangan agar tidak melewati jam tutup operasional database
         while (current.plusMinutes(90).isBefore(closeTime) || current.plusMinutes(90).equals(closeTime) || closeTime.toString().startsWith("23:59")) {
             generatedSlots.add(current.format(formatter));
-            current = current.plusMinutes(90); // Lompat per 1.5 jam (90 menit) sesuai kesepakatan UI/UX
+            current = current.plusMinutes(90); // Lompat per 1.5 jam (90 menit)
 
             // Break jika waktu sudah mendekati tengah malam untuk menghindari infinite loop
             if (current.isBefore(openTime) || current.getHour() == 0) {
