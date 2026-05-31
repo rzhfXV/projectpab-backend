@@ -9,10 +9,10 @@ import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.io.IOException;
 
@@ -24,10 +24,14 @@ public class UserController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    // 1. Ambil User dari SecurityContextHolder (Jauh lebih aman daripada @AuthenticationPrincipal langsung)
+    private User getAuthenticatedUser() {
+        return (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    }
+
     @PutMapping("/profile/update-name")
-    public ResponseEntity<ApiResponse<String>> updateName(
-            @RequestBody NameRequest req, 
-            @AuthenticationPrincipal User user) {
+    public ResponseEntity<ApiResponse<String>> updateName(@RequestBody UpdateNameRequest req) {
+        User user = getAuthenticatedUser();
         
         if (req.getName() == null || req.getName().trim().isEmpty()) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Nama tidak boleh kosong"));
@@ -40,9 +44,8 @@ public class UserController {
     }
 
     @PostMapping(value = "/profile/update-avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<String>> updateAvatar(
-            @RequestParam("file") MultipartFile file, 
-            @AuthenticationPrincipal User user) throws IOException {
+    public ResponseEntity<ApiResponse<String>> updateAvatar(@RequestParam("file") MultipartFile file) throws IOException {
+        User user = getAuthenticatedUser();
         
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body(ApiResponse.error("File gambar tidak ditemukan"));
@@ -57,9 +60,8 @@ public class UserController {
     }
 
     @PutMapping("/profile/update-account")
-    public ResponseEntity<ApiResponse<String>> updateAccount(
-            @RequestBody AccountRequest req, 
-            @AuthenticationPrincipal User user) {
+    public ResponseEntity<ApiResponse<String>> updateAccount(@RequestBody UpdateAccountRequest req) {
+        User user = getAuthenticatedUser();
         
         if (req.getEmail() == null || req.getEmail().trim().isEmpty()) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Email tidak boleh kosong"));
@@ -75,7 +77,20 @@ public class UserController {
         
         return ResponseEntity.ok(ApiResponse.success("Data akun berhasil diperbarui", user.getEmail()));
     }
-}
 
-@Data @NoArgsConstructor @AllArgsConstructor class NameRequest { private String name; }
-@Data @NoArgsConstructor @AllArgsConstructor class AccountRequest { private String email; private String newPassword; }
+    // ─── DATA CLASS REQUEST DTO (SINKRON 100% DENGAN API_SERVICE.KT ANDROID) ───
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UpdateNameRequest {
+        private String name;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UpdateAccountRequest {
+        private String email;
+        private String newPassword;
+    }
+}
