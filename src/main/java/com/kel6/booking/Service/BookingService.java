@@ -120,6 +120,7 @@ public class BookingService {
     }
 
     // ─── Riwayat booking milik user ───────────────────────────────────
+    @Transactional(readOnly = true)
     public List<BookingResponse> getMyBookings(Long userId) {
         return bookingRepository
                 .findByUserIdOrderByBookingDateDescStartTimeDesc(userId)
@@ -129,6 +130,7 @@ public class BookingService {
     }
 
     // ─── Detail satu booking ──────────────────────────────────────────
+    @Transactional(readOnly = true)
     public BookingResponse getBookingById(Long bookingId, User user) {
         Booking booking = findBookingAndValidateOwner(bookingId, user);
         return BookingResponse.from(booking);
@@ -159,6 +161,7 @@ public class BookingService {
     }
 
     // ─── Admin: semua booking dengan filter status ────────────────────
+    @Transactional(readOnly = true)
     public List<BookingResponse> getAllBookings(String status) {
         List<Booking> bookings;
         if (status != null && !status.isBlank()) {
