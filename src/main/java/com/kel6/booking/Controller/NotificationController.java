@@ -6,6 +6,7 @@ import com.kel6.booking.Model.Notification;
 import com.kel6.booking.Repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,6 +25,7 @@ public class NotificationController {
      * Semua notifikasi user yang login, terbaru dulu
      */
     @GetMapping
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<List<Notification>>> getAll() {
         Long userId = securityHelper.getCurrentUserId();
         return ResponseEntity.ok(ApiResponse.success(
@@ -35,6 +37,7 @@ public class NotificationController {
      * Jumlah notifikasi belum dibaca (untuk badge di Android)
      */
     @GetMapping("/unread-count")
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<Map<String, Long>>> getUnreadCount() {
         Long userId = securityHelper.getCurrentUserId();
         long count = notificationRepository.countByUserIdAndIsReadFalse(userId);
@@ -46,6 +49,7 @@ public class NotificationController {
      * Tandai satu notifikasi sebagai sudah dibaca
      */
     @PatchMapping("/{id}/read")
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<Void>> markAsRead(@PathVariable Long id) {
         Long userId = securityHelper.getCurrentUserId();
         notificationRepository.findById(id).ifPresent(notif -> {
