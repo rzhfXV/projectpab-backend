@@ -72,10 +72,25 @@ public class CourtService {
         // Generate slot per 1 jam
         List<SlotResponse> slots = new ArrayList<>();
         LocalTime cursor = schedule.getOpenTime();
+        LocalTime closeTime = schedule.getCloseTime();
 
-        while (cursor.plusHours(1).compareTo(schedule.getCloseTime()) <= 0) {
+        // Jika closeTime adalah 00:00 (tengah malam), anggap sebagai waktu akhir hari (24:00)
+        boolean closesAtMidnight = closeTime.equals(LocalTime.MIDNIGHT);
+
+        while (true) {
             LocalTime slotStart = cursor;
             LocalTime slotEnd = cursor.plusHours(1);
+
+            // Cek kondisi berhenti: jika melebihi closeTime (dan bukan kasus tutup jam 00:00)
+            if (!closesAtMidnight && slotEnd.isAfter(closeTime)) {
+                break;
+            }
+
+            // Cek apakah slotEnd membungkus ke hari berikutnya (melewati 23:59)
+            boolean wrapped = slotEnd.isBefore(slotStart) && !slotEnd.equals(LocalTime.MIDNIGHT);
+            if (wrapped) {
+                break;
+            }
 
             boolean isTaken = existingBookings.stream().anyMatch(b ->
                     b.getStartTime().isBefore(slotEnd) &&
@@ -83,12 +98,17 @@ public class CourtService {
             );
 
             slots.add(SlotResponse.builder()
-                    .startTime(slotStart)
-                    .endTime(slotEnd)
+                    .startTime(slotStart.toString())
+                    .endTime(slotEnd.toString())
                     .available(!isTaken)
                     .build());
 
-            cursor = cursor.plusHours(1);
+            cursor = slotEnd;
+
+            // Berhenti jika sudah mencapai waktu tutup
+            if (cursor.equals(closeTime) || cursor.equals(LocalTime.MIDNIGHT)) {
+                break;
+            }
         }
 
         return slots;
